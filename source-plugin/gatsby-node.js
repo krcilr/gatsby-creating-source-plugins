@@ -53,8 +53,10 @@ exports.sourceNodes = async ({
     createNodeId,
     getNodesByType,
   },
+  pluginOptions
 ) => {
-  const { createNode } = actions
+  const { createNode } = actions;
+  console.log(`previewMode: ${pluginOptions.previewMode}`);
 
   const { data } = await client.query({
       query: gql`
