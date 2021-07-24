@@ -33,16 +33,14 @@ const client = new ApolloClient({
       )
     },
     new WebSocketLink({
-      uri: `ws://gatsby-source-plugin-api.glitch.me/`,
-      //uri: `ws://localhost:4000`, // or `ws://gatsby-source-plugin-api.glitch.me/`
+      uri: `ws://localhost:4000`, // or `ws://gatsby-source-plugin-api.glitch.me/`
       options: {
         reconnect: true,
       },
       webSocketImpl: WebSocket,
     }),
     new HttpLink({
-      uri: `https://gatsby-source-plugin-api.glitch.me/`,
-      //uri: "http://localhost:4000", // or `https://gatsby-source-plugin-api.glitch.me/`
+      uri: "http://localhost:4000", // or `https://gatsby-source-plugin-api.glitch.me/`
       fetch,
     })
   ),
@@ -50,11 +48,12 @@ const client = new ApolloClient({
 })
 
 exports.sourceNodes = async ({
-  actions,
-  createContentDigest,
-  createNodeId,
-  getNodesByType,
-}) => {
+    actions,
+    createContentDigest,
+    createNodeId,
+    getNodesByType,
+  },
+) => {
   const { createNode } = actions
 
   const { data } = await client.query({
@@ -129,7 +128,28 @@ exports.onCreateNode = async ({
       })
   
       if (fileNode) {
-        node.remoteImage___NODE = fileNode.id
+        // save the ID of the fileNode on the Post node
+        node.remoteImage = fileNode.id
       }
     }
+  }
+
+exports.createSchemaCustomization = ({ actions }) => {
+  const { createTypes } = actions
+  createTypes(`
+    type Post implements Node {
+      id: ID!
+      slug: String!
+      description: String!
+      imgUrl: String!
+      imgAlt: String!
+      # create relationships between Post and File nodes for optimized images
+      remoteImage: File @link
+      # create relationships between Post and Author nodes
+      author: Author @link(from: "author.name" by: "name")
+    }
+    type Author implements Node {
+      id: ID!
+      name: String!
+    }`)
   }
