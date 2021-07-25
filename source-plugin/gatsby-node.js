@@ -55,8 +55,64 @@ exports.sourceNodes = async ({
   },
   pluginOptions
 ) => {
-  const { createNode } = actions;
-  console.log(`previewMode: ${pluginOptions.previewMode}`);
+  const { createNode } = actions
+  console.log(`previewMode: ${pluginOptions.previewMode}`)
+
+  // touch nodes to ensure they aren't garbage collected
+  getNodesByType(POST_NODE_TYPE).forEach(node => touchNode(node))
+  getNodesByType(AUTHOR_NODE_TYPE).forEach(node => touchNode(node))
+
+  if (pluginOptions.previewMode) {
+    console.log("Subscribing to content updates...")
+    const subscription = await client.subscribe({
+      query: gql`
+        subscription {
+          posts {
+            id
+            slug
+            description
+            imgUrl
+            imgAlt
+            author {
+              id
+              name
+            }
+            status
+          }
+        }
+      `,
+    })
+
+    subscription.subscribe(({ data }) => {
+      console.log(`Subscription received:`)
+      console.log(data.posts)
+      data.posts.forEach(post => {
+        const nodeId = createNodeId(`${POST_NODE_TYPE}-${post.id}`)
+        switch (post.status) {
+          case "deleted":
+            deleteNode(getNode(nodeId))
+            break
+          case "created":
+          case "updated":
+          default:
+            // created and updated can be handled by the same code path
+            // the post's id is presumed to stay constant (or can be inferred)
+            createNode({
+              ...post,
+              id: createNodeId(`${POST_NODE_TYPE}-${post.id}`),
+              parent: null,
+              children: [],
+              internal: {
+                type: POST_NODE_TYPE,
+                content: JSON.stringify(post),
+                contentDigest: createContentDigest(post),
+              },
+            })
+            break
+        }
+      })
+    })
+  }
 
   const { data } = await client.query({
       query: gql`
